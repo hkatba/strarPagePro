@@ -1,0 +1,530 @@
+'use client';
+
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Monitor, Smartphone } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { Widget, WidgetLayoutMode } from '@/types';
+import { useWidgetStore } from '@/store/useWidgetStore';
+import { useUIStore } from '@/store/useUIStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
+import { useSidebarStore } from '@/store/useSidebarStore';
+import WidgetSettingsModal from '../widgets/WidgetSettingsModal';
+import DroppableGridArea from './DroppableGridArea';
+import { WidgetCreatedDetail } from '@/lib/widgetPlacement';
+import { useCanvasMetrics } from './useCanvasMetrics';
+import { useCanvasDragPreview } from './useCanvasDragPreview';
+import { useCanvasLayoutItems } from './useCanvasLayoutItems';
+import MainCanvasBackground from './MainCanvasBackground';
+import CanvasWidgetItem from './CanvasWidgetItem';
+import WidgetDeleteZone from './WidgetDeleteZone';
+import { useDragDrop } from './DragDropProvider';
+import CanvasLinkLauncher from './CanvasLinkLauncher';
+import { collectLauncherBookmarks, searchLauncherLinks } from '@/lib/linkLauncher';
+import { buildSearchUrl, DEFAULT_SEARCH_ENGINE } from '@/lib/searchEngines';
+import { cn } from '@/lib/utils';
+import {
+  pushLauncherSearchHistory,
+  readLauncherSearchHistory,
+  type LauncherSearchHistoryItem,
+} from '@/lib/linkLauncherHistory';
+import {
+  LAUNCHER_USAGE_CHANGED_EVENT,
+  LauncherUsageStore,
+  readLauncherUsage,
+  recordLauncherLinkOpen,
+} from '@/lib/linkLauncherUsage';
+
+const GRID_ROW_HEIGHT = 120;
+const GRID_MARGIN: [number, number] = [8, 8];
+
+/**
+ * MainCanvas Component
+ * Main content area, responsible for composing canvas background, drop grid, and widget view layer.
+ */
+export default function MainCanvas() {
+  const t = useTranslations('Widgets');
+  const {
+    backgroundImage,
+    backgroundBlur,
+    backgroundOpacity,
+    backgroundSize,
+    backgroundRepeat,
+  } = useSettingsStore();
+  const { widgets, bookmarks, setActiveLayoutMode, batchUpdatePositions } = useWidgetStore();
+  const { beginMobileLayoutSession, endMobileLayoutSession } = useWidgetStore();
+  const {
+    isEditing,
+    isLauncherOpen,
+    openLauncher,
+    closeLauncher: closeLauncherPanel,
+    isSettingsOpen,
+    isBookmarksOpen,
+    setCurrentCanvasCols,
+    editingLayoutMode,
+  } = useUIStore();
+  const isSidebarOpen = useSidebarStore((state) => state.isOpen);
+  const { isDragging: isStoreDragging } = useDragDrop();
+
+  const [editingWidget, setEditingWidget] = useState<Widget | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [viewportLayoutMode, setViewportLayoutMode] = useState<WidgetLayoutMode>('desktop');
+  const [launcherQuery, setLauncherQuery] = useState('');
+  const [selectedLauncherIndex, setSelectedLauncherIndex] = useState(0);
+  const [searchEngine, setSearchEngine] = useState(DEFAULT_SEARCH_ENGINE);
+  const [searchHistory, setSearchHistory] = useState<LauncherSearchHistoryItem[]>([]);
+  const [launcherUsage, setLauncherUsage] = useState<LauncherUsageStore>(() => ({
+    version: 1,
+    links: {},
+  }));
+  const widgetsRef = useRef(widgets);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const [dropPreviewUpdates, setDropPreviewUpdates] = useState<
+    Array<{ id: string; position: { x: number; y: number } }>
+  >([]);
+  const displayLayoutMode = isEditing ? editingLayoutMode : viewportLayoutMode;
+  const isDesktopMobilePreview = isEditing && editingLayoutMode === 'mobile' && viewportLayoutMode === 'desktop';
+
+  const { width, containerRef, currentCols, cellWidth, toPixelRect } = useCanvasMetrics({
+    rowHeight: GRID_ROW_HEIGHT,
+    margin: GRID_MARGIN,
+    forcedCols: displayLayoutMode === 'mobile' ? 2 : undefined,
+  });
+
+  const {
+    handleDragHandlePointerDown,
+    draggingWidgetId,
+    dragPreviewPosition,
+    dragPointerOffset,
+    isDragPreviewValid,
+    editPreviewUpdates,
+  } = useCanvasDragPreview({
+    widgets,
+    isEditing,
+    cellWidth,
+    currentCols,
+    rowHeight: GRID_ROW_HEIGHT,
+    margin: GRID_MARGIN,
+    batchUpdatePositions,
+    scrollContainerRef,
+  });
+
+  const { items: canvasItems, canvasHeight } = useCanvasLayoutItems({
+    widgets,
+    draggingWidgetId,
+    dragPreviewPosition,
+    dragPointerOffset,
+    editPreviewUpdates,
+    dropPreviewUpdates,
+    toPixelRect,
+  });
+
+  const launcherLinks = useMemo(() => collectLauncherBookmarks(bookmarks), [bookmarks]);
+  const launcherResults = useMemo(
+    () => searchLauncherLinks(launcherLinks, launcherQuery, 8, launcherUsage),
+    [launcherLinks, launcherQuery, launcherUsage]
+  );
+  const launcherItems = useMemo(() => {
+    if (!launcherQuery.trim()) {
+      const searchItems = searchHistory.map((item) => ({
+        id: item.id,
+        kind: 'search' as const,
+        title: item.query,
+        subtitle: t('launcher_search_history_item'),
+        query: item.query,
+      }));
+      const frequentLinkItems = launcherResults.map((link) => ({
+        id: link.id,
+        kind: 'link' as const,
+        title: link.title,
+        subtitle: link.hostname || link.url,
+        sourceLabel: t('launcher_source_links'),
+        link,
+      }));
+
+      return [...searchItems, ...frequentLinkItems];
+    }
+
+    return launcherResults.map((link) => ({
+      id: link.id,
+      kind: 'link' as const,
+      title: link.title,
+      subtitle: link.hostname || link.url,
+      sourceLabel: t('launcher_source_links'),
+      link,
+    }));
+  }, [launcherQuery, launcherResults, searchHistory, t]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setSearchHistory(readLauncherSearchHistory());
+    setLauncherUsage(readLauncherUsage());
+  }, []);
+
+  useEffect(() => {
+    const refreshUsage = () => setLauncherUsage(readLauncherUsage());
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === 'navidash-launcher-usage-v1') {
+        refreshUsage();
+      }
+    };
+
+    window.addEventListener(LAUNCHER_USAGE_CHANGED_EVENT, refreshUsage);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener(LAUNCHER_USAGE_CHANGED_EVENT, refreshUsage);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const syncViewportLayoutMode = () => {
+      setViewportLayoutMode(mediaQuery.matches ? 'mobile' : 'desktop');
+    };
+
+    syncViewportLayoutMode();
+    mediaQuery.addEventListener('change', syncViewportLayoutMode);
+    return () => mediaQuery.removeEventListener('change', syncViewportLayoutMode);
+  }, []);
+
+  useEffect(() => {
+    setActiveLayoutMode(displayLayoutMode);
+  }, [displayLayoutMode, setActiveLayoutMode]);
+
+  useEffect(() => {
+    if (isEditing && editingLayoutMode === 'mobile') {
+      beginMobileLayoutSession();
+      return;
+    }
+
+    endMobileLayoutSession();
+  }, [beginMobileLayoutSession, editingLayoutMode, endMobileLayoutSession, isEditing]);
+
+  useEffect(() => {
+    widgetsRef.current = widgets;
+  }, [widgets]);
+
+  useEffect(() => {
+    setCurrentCanvasCols(currentCols);
+  }, [currentCols, setCurrentCanvasCols]);
+
+  useEffect(() => {
+    const handleCreated = (event: CustomEvent<WidgetCreatedDetail>) => {
+      if (!event.detail.shouldOpenSettings) return;
+
+      requestAnimationFrame(() => {
+        const targetWidget = widgetsRef.current.find((widget) => widget.id === event.detail.widgetId);
+        if (targetWidget) {
+          setEditingWidget(targetWidget);
+        }
+      });
+    };
+
+    window.addEventListener('widget-created', handleCreated as EventListener);
+    return () => window.removeEventListener('widget-created', handleCreated as EventListener);
+  }, []);
+
+  useEffect(() => {
+    setSelectedLauncherIndex((currentIndex) => {
+      if (launcherItems.length === 0) {
+        return 0;
+      }
+
+      return Math.min(currentIndex, launcherItems.length - 1);
+    });
+  }, [launcherItems]);
+
+  useEffect(() => {
+    const isEditableTarget = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      return Boolean(target?.closest('input, textarea, select, [contenteditable="true"]'));
+    };
+
+    const isLauncherBlocked = () =>
+      isEditing ||
+      isSettingsOpen ||
+      isBookmarksOpen ||
+      isSidebarOpen ||
+      !!editingWidget ||
+      isStoreDragging;
+
+    const shouldIgnoreKeyboardEvent = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) {
+        return true;
+      }
+
+      if (isEditableTarget(event)) {
+        return true;
+      }
+
+      if (isLauncherBlocked()) {
+        return true;
+      }
+
+      return false;
+    };
+
+    const closeLauncher = () => {
+      closeLauncherPanel();
+      setLauncherQuery('');
+      setSelectedLauncherIndex(0);
+    };
+
+    const openSelectedLink = () => {
+      const selectedItem = launcherItems[selectedLauncherIndex];
+
+      if (!selectedItem) {
+        if (launcherQuery.trim()) {
+          setSearchHistory(pushLauncherSearchHistory(launcherQuery.trim()));
+          window.open(
+            buildSearchUrl(launcherQuery.trim(), searchEngine),
+            '_blank',
+            'noopener,noreferrer'
+          );
+          closeLauncher();
+        }
+        return;
+      }
+
+      if (selectedItem.kind === 'search' && selectedItem.query) {
+        setSearchHistory(pushLauncherSearchHistory(selectedItem.query));
+        window.open(buildSearchUrl(selectedItem.query, searchEngine), '_blank', 'noopener,noreferrer');
+        closeLauncher();
+        return;
+      }
+
+      if (selectedItem.kind === 'link' && selectedItem.link) {
+        recordLauncherLinkOpen(selectedItem.link.url, launcherQuery);
+        window.open(selectedItem.link.url, '_blank', 'noopener,noreferrer');
+      }
+      closeLauncher();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        if (isEditableTarget(event) || isLauncherBlocked()) {
+          return;
+        }
+
+        event.preventDefault();
+        openLauncher();
+        return;
+      }
+
+      if (shouldIgnoreKeyboardEvent(event)) {
+        return;
+      }
+
+      if (isLauncherOpen) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closeLauncher();
+          return;
+        }
+
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          openSelectedLink();
+          return;
+        }
+
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          setSelectedLauncherIndex((currentIndex) =>
+            launcherItems.length === 0 ? 0 : (currentIndex + 1) % launcherItems.length
+          );
+          return;
+        }
+
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          setSelectedLauncherIndex((currentIndex) =>
+            launcherItems.length === 0
+              ? 0
+              : (currentIndex - 1 + launcherItems.length) % launcherItems.length
+          );
+          return;
+        }
+
+        if (event.key === 'Backspace') {
+          event.preventDefault();
+          setLauncherQuery((currentQuery) => {
+            const nextQuery = currentQuery.slice(0, -1);
+
+            if (!nextQuery) {
+              setSelectedLauncherIndex(0);
+            }
+
+            return nextQuery;
+          });
+          return;
+        }
+      }
+
+      if (event.key.length !== 1 || !event.key.trim()) {
+        return;
+      }
+
+      event.preventDefault();
+      openLauncher();
+      setSelectedLauncherIndex(0);
+      setLauncherQuery((currentQuery) => `${currentQuery}${event.key}`);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [
+    closeLauncherPanel,
+    editingWidget,
+    isEditing,
+    isBookmarksOpen,
+    isSettingsOpen,
+    isSidebarOpen,
+    isStoreDragging,
+    launcherItems,
+    isLauncherOpen,
+    launcherQuery,
+    openLauncher,
+    searchEngine,
+    selectedLauncherIndex,
+  ]);
+
+  const handleCloseLauncher = () => {
+    closeLauncherPanel();
+    setLauncherQuery('');
+    setSelectedLauncherIndex(0);
+  };
+
+  const handleSelectLauncherItem = (item: React.ComponentProps<typeof CanvasLinkLauncher>['items'][number]) => {
+    if (item.kind === 'search' && item.query) {
+      setSearchHistory(pushLauncherSearchHistory(item.query));
+      window.open(buildSearchUrl(item.query, searchEngine), '_blank', 'noopener,noreferrer');
+      handleCloseLauncher();
+      return;
+    }
+
+    if (item.kind === 'link' && item.link) {
+      recordLauncherLinkOpen(item.link.url, launcherQuery);
+      window.open(item.link.url, '_blank', 'noopener,noreferrer');
+    }
+    handleCloseLauncher();
+  };
+
+  return (
+    <main
+      className="flex-1 relative flex flex-col overflow-hidden focus:outline-none"
+      data-main-canvas
+      tabIndex={-1}
+    >
+      <MainCanvasBackground
+        backgroundImage={backgroundImage}
+        backgroundBlur={backgroundBlur}
+        backgroundOpacity={backgroundOpacity}
+        backgroundSize={backgroundSize}
+        backgroundRepeat={backgroundRepeat}
+      />
+
+      <div ref={scrollContainerRef} className="relative z-10 flex-1 overflow-y-auto p-6 pb-24">
+        {isEditing && (
+          <div className="mx-auto mb-5 flex max-w-7xl items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/88 px-4 py-3 text-sm text-slate-600 shadow-sm backdrop-blur">
+            <div className="flex items-center gap-2 font-medium text-slate-900">
+              {displayLayoutMode === 'mobile' ? <Smartphone size={16} /> : <Monitor size={16} />}
+              <span>
+                {displayLayoutMode === 'mobile' ? 'Editing Mobile Layout' : 'Editing Desktop Layout'}
+              </span>
+            </div>
+            <p className="text-xs leading-5 text-slate-500">
+              Widget content is shared across layouts; only size and placement are adjusted for this view.
+            </p>
+          </div>
+        )}
+
+        <div
+          className={cn(
+            'mx-auto min-h-[500px]',
+            isDesktopMobilePreview ? 'max-w-[420px]' : 'max-w-7xl'
+          )}
+        >
+          <div
+            className={cn(
+              isDesktopMobilePreview &&
+                'rounded-[32px] border border-slate-300/80 bg-white/70 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.12)]'
+            )}
+          >
+            <div
+              ref={containerRef}
+              className={cn('min-h-[500px]', isDesktopMobilePreview && 'mx-auto max-w-[390px]')}
+            >
+              {mounted && width > 0 && (
+                <DroppableGridArea
+                  containerRef={containerRef}
+                  width={width}
+                  cols={currentCols}
+                  rowHeight={GRID_ROW_HEIGHT}
+                  margin={GRID_MARGIN}
+                  onPreviewChange={setDropPreviewUpdates}
+                >
+                  <div className="relative w-full" style={{ height: `${canvasHeight}px` }}>
+                    {canvasItems.map(
+                      ({
+                        widget,
+                        rect,
+                        layoutRect,
+                        dragOffset,
+                        hasPreviewTarget,
+                        isDragging,
+                        isBeingPushed,
+                      }) => (
+                        <CanvasWidgetItem
+                          key={widget.id}
+                          widget={widget}
+                          rect={rect}
+                          layoutRect={layoutRect}
+                          dragOffset={dragOffset}
+                          hasPreviewTarget={hasPreviewTarget}
+                          isDragging={isDragging}
+                          isBeingPushed={isBeingPushed}
+                          isPreviewValid={isDragPreviewValid}
+                          onEdit={setEditingWidget}
+                          onDragHandlePointerDown={handleDragHandlePointerDown}
+                        />
+                      )
+                    )}
+                  </div>
+                </DroppableGridArea>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <WidgetDeleteZone
+        visible={isStoreDragging}
+      />
+      <WidgetSettingsModal
+        isOpen={!!editingWidget}
+        widget={editingWidget}
+        onClose={() => setEditingWidget(null)}
+      />
+      <CanvasLinkLauncher
+        isOpen={isLauncherOpen}
+        query={launcherQuery}
+        items={launcherItems}
+        selectedIndex={selectedLauncherIndex}
+        searchHistory={searchHistory}
+        searchEngine={searchEngine}
+        onSearchEngineChange={setSearchEngine}
+        onClose={handleCloseLauncher}
+        onSelect={handleSelectLauncherItem}
+      />
+    </main>
+  );
+}

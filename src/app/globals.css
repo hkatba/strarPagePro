@@ -1,0 +1,237 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Kaushan Script';
+  src: url('/fonts/KaushanScript-Regular.ttf') format('truetype');
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --primary-color: 59 130 246; /* Default Blue-500 in RGB */
+    --radius-widget: 1.125rem;
+    --radius-dialog: 1.5rem;
+    --radius-control: 0.75rem;
+  }
+
+  html {
+    font-feature-settings: 'kern' 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Override react-grid-layout placeholder style */
+  /* Using specific selector to ensure override */
+  .layout .react-grid-placeholder {
+    background: rgba(var(--primary-color), 0.3) !important;
+    opacity: 1 !important;
+    border-radius: var(--radius-widget) !important;
+    z-index: 1 !important;
+  }
+
+  .widget-surface {
+    overflow: hidden;
+    border-radius: var(--radius-widget);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow:
+      0 8px 24px rgba(15, 23, 42, 0.07),
+      0 2px 6px rgba(15, 23, 42, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  }
+
+  .widget-surface:not(.widget-surface-editing):hover {
+    box-shadow:
+      0 12px 30px rgba(15, 23, 42, 0.09),
+      0 3px 8px rgba(15, 23, 42, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  }
+
+  .widget-surface-editing {
+    border: 1px dashed rgba(var(--primary-color), 0.55);
+    background: rgba(248, 250, 252, 0.76);
+    box-shadow:
+      0 0 0 4px rgba(var(--primary-color), 0.08),
+      0 10px 28px rgba(15, 23, 42, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  }
+
+  .poster-surface {
+    overflow: hidden;
+    border-radius: var(--radius-widget);
+    background: transparent;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.11);
+  }
+
+  .poster-surface:not(.widget-surface-editing):hover {
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+  }
+}
+
+@layer utilities {
+  @keyframes launcher-fly-in {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, 5rem, 0) scale(0.9);
+    }
+
+    68% {
+      opacity: 1;
+      transform: translate3d(0, -0.35rem, 0) scale(1.01);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  .launcher-fly-in {
+    animation: launcher-fly-in 360ms cubic-bezier(0.2, 0.82, 0.2, 1) both;
+    transform-origin: bottom center;
+    will-change: transform, opacity;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .launcher-fly-in {
+      animation-duration: 1ms;
+    }
+  }
+
+  .font-sf {
+    font-family:
+      'SF Pro Display',
+      'SF Pro Text',
+      'SF Pro',
+      -apple-system,
+      BlinkMacSystemFont,
+      'Helvetica Neue',
+      Helvetica,
+      Arial,
+      sans-serif;
+  }
+
+  .text-ui-title {
+    font-size: 0.95rem;
+    line-height: 1.35;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .text-ui-body {
+    font-size: 0.875rem;
+    line-height: 1.55;
+    font-weight: 400;
+  }
+
+  .text-ui-muted {
+    font-size: 0.75rem;
+    line-height: 1.45;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+  }
+
+  .text-ui-eyebrow {
+    font-size: 0.68rem;
+    line-height: 1.3;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .hover-scrollbar {
+    scrollbar-width: none;
+}
+
+  .hover-scrollbar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  .hover-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .hover-scrollbar::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 9999px;
+  }
+
+  .hover-scrollbar:hover {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.72) transparent;
+  }
+
+  .hover-scrollbar:hover::-webkit-scrollbar,
+  .hover-scrollbar:focus::-webkit-scrollbar,
+  .hover-scrollbar:focus-visible::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .hover-scrollbar:hover::-webkit-scrollbar-thumb,
+  .hover-scrollbar:focus::-webkit-scrollbar-thumb,
+  .hover-scrollbar:focus-visible::-webkit-scrollbar-thumb {
+    background: #cbd5e1; /* slate-300 */
+  }
+
+  .hover-scrollbar:hover::-webkit-scrollbar-thumb:hover,
+  .hover-scrollbar:focus::-webkit-scrollbar-thumb:hover,
+  .hover-scrollbar:focus-visible::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8; /* slate-400 */
+  }
+
+  .memo-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .memo-scrollbar::-webkit-scrollbar {
+    width: 0;
+  }
+
+  .memo-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .memo-scrollbar::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 9999px;
+  }
+
+  .memo-scrollbar:hover {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(113, 63, 18, 0.28) transparent;
+  }
+
+  .memo-scrollbar:hover::-webkit-scrollbar,
+  .memo-scrollbar:focus::-webkit-scrollbar,
+  .memo-scrollbar:focus-visible::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  .memo-scrollbar:hover::-webkit-scrollbar-thumb,
+  .memo-scrollbar:focus::-webkit-scrollbar-thumb,
+  .memo-scrollbar:focus-visible::-webkit-scrollbar-thumb {
+    background: rgba(113, 63, 18, 0.28);
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

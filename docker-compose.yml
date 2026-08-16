@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  navidash:
+    build: .
+    image: navidash:local
+    container_name: navidash
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist data outside the git working tree to avoid accidental loss during redeploys
+      - ${NAVIDASH_DATA_DIR:-/opt/navidash-data}:/app/data
+    environment:
+      - NODE_ENV=production
+      - DEMO_MODE=false
+      - NEXT_PUBLIC_DEMO_MODE=false
+      - DATA_DIR=/app/data
+      - NAVIDASH_ACCESS_PASSWORD=${NAVIDASH_ACCESS_PASSWORD:-}
+      - QWEATHER_API_KEY=${QWEATHER_API_KEY:-}
+      - QWEATHER_API_HOST=${QWEATHER_API_HOST:-}
+      - QWEATHER_AUTH_TYPE=${QWEATHER_AUTH_TYPE:-apikey}

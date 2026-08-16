@@ -1,0 +1,119 @@
+{
+  "categories": [
+    {
+      "name": "TrueNAS (192.168.31.15)",
+      "color": "gradient-blue",
+      "links": [
+        {
+          "name": "📁Filebrowser",
+          "url": "http://192.168.31.15:30051",
+          "description": "File management and browsing"
+        },
+        {
+          "name": "🖼️immich",
+          "url": "http://192.168.31.15:30041",
+          "description": "Photo library and albums"
+        },
+        {
+          "name": "Minio",
+          "url": "http://192.168.31.15:9000",
+          "description": "Object storage service"
+        },
+        {
+          "name": "TrueNAS",
+          "url": "http://192.168.31.15",
+          "description": "Storage management system"
+        }
+      ]
+    },
+    {
+      "name": "PVE (192.168.31.87)",
+      "color": "gradient-purple",
+      "links": [
+        {
+          "name": "PVE",
+          "url": "https://192.168.31.87:8006",
+          "description": "Virtual machine management platform"
+        },
+        {
+          "name": "iStoreOS",
+          "url": "http://192.168.31.88",
+          "description": "Network storage OS"
+        }
+      ]
+    },
+    {
+      "name": "Tools & Services",
+      "color": "gradient-pink",
+      "links": [
+        {
+          "name": "Field Check",
+          "url": "https://nav.lonsdaleite.cc/fieldcheck.html",
+          "description": "Service check and testing"
+        },
+        {
+          "name": "Joplin",
+          "url": "https://joplin.lonsdaleite.cc",
+          "description": "Notes and task management"
+        },
+        {
+          "name": "Compress",
+          "url": "https://compress.lonsdaleite.cc",
+          "description": "File compression tool"
+        }
+      ]
+    },
+    {
+      "name": "Entertainment & Media",
+      "color": "gradient-orange",
+      "links": [
+        {
+          "name": "Bilibili",
+          "url": "https://bilibili.com",
+          "description": "Chinese video platform"
+        },
+        {
+          "name": "Huya",
+          "url": "https://huya.com",
+          "description": "Live streaming and gaming"
+        },
+        {
+          "name": "Douyin",
+          "url": "https://douyin.com",
+          "description": "Short video platform"
+        },
+        {
+          "name": "Emby",
+          "url": "http://192.168.31.19:8096/",
+          "description": "Home media library"
+        }
+      ]
+    },
+    {
+      "name": "Social Networks",
+      "color": "gradient-teal",
+      "links": [
+        {
+          "name": "Weibo",
+          "url": "https://weibo.com",
+          "description": "Chinese social platform"
+        },
+        {
+          "name": "Facebook",
+          "url": "https://facebook.com",
+          "description": "Global social network"
+        },
+        {
+          "name": "Instagram",
+          "url": "https://instagram.com",
+          "description": "Photo sharing community"
+        },
+        {
+          "name": "Reddit",
+          "url": "https://reddit.com",
+          "description": "Discussion and news community"
+        }
+      ]
+    }
+  ]
+}
